@@ -1,0 +1,156 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
+
+# Load your dataframe
+# Replace 'your_dataframe.csv' with the path to your actual dataframe
+# df = pd.read_csv('your_dataframe.csv')
+
+# Assuming df is your dataframe
+# Example dataframe creation for illustration
+np.random.seed(42)
+df = pd.DataFrame({
+    'X1': np.random.randn(100),
+    'X2': np.random.randn(100),
+    'X3': np.random.randn(100),
+    'X4': np.random.randn(100),
+    'Y': np.random.choice([0, 1], size=100)
+})
+
+# Split the data into features and target variable
+X = df.drop('Y', axis=1)
+y = df['Y']
+
+# Standardize the data
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Calculate feature importances using a Random Forest classifier
+rf = RandomForestClassifier(random_state=42)
+rf.fit(X, y)
+feature_importances = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
+
+# Print the feature importances
+print("Feature Importances:")
+print(feature_importances)
+
+# Determine the optimal number of clusters using the Elbow Method
+sse = []
+for k in range(1, 11):
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(X_scaled)
+    sse.append(kmeans.inertia_)
+
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, 11), sse)
+plt.xlabel('Number of Clusters')
+plt.ylabel('SSE')
+plt.title('Elbow Method for Optimal Number of Clusters')
+plt.show()
+
+# Assuming you choose k=3 based on the elbow method
+k = 3
+kmeans = KMeans(n_clusters=k, random_state=42)
+clusters = kmeans.fit_predict(X_scaled)
+
+# Add the cluster labels to the dataframe
+df['Cluster'] = clusters
+
+# Get the three most important features
+most_important_features = feature_importances.index[:3]
+
+# 3D scatter plot of the clusters on the most important features
+fig = plt.figure(figsize=(10, 6))
+ax = fig.add_subplot(111, projection='3d')
+scatter = ax.scatter(df[most_important_features[0]], df[most_important_features[1]], df[most_important_features[2]], c=df['Cluster'], cmap='viridis')
+legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
+ax.add_artist(legend1)
+ax.set_xlabel(most_important_features[0])
+ax.set_ylabel(most_important_features[1])
+ax.set_zlabel(most_important_features[2])
+plt.title('Clusters Visualization on Most Important Features')
+plt.show()
+
+############## Recursive Feature Elimination
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import RFECV
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
+
+# Load your dataframe
+# Replace 'your_dataframe.csv' with the path to your actual dataframe
+# df = pd.read_csv('your_dataframe.csv')
+
+# Assuming df is your dataframe
+# Example dataframe creation for illustration
+np.random.seed(42)
+df = pd.DataFrame({
+    'X1': np.random.randn(100),
+    'X2': np.random.randn(100),
+    'X3': np.random.randn(100),
+    'X4': np.random.randn(100),
+    'Y': np.random.choice([0, 1], size=100)
+})
+
+# Split the data into features and target variable
+X = df.drop('Y', axis=1)
+y = df['Y']
+
+# Standardize the data
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Use Recursive Feature Elimination with Cross-Validation to select features
+rf = RandomForestClassifier(random_state=42)
+rfecv = RFECV(estimator=rf, step=1, cv=5, scoring='accuracy')
+rfecv.fit(X_scaled, y)
+
+# Get the selected features
+selected_features = X.columns[rfecv.support_]
+print("Selected Features:")
+print(selected_features)
+
+# Determine the optimal number of clusters using the Elbow Method
+sse = []
+for k in range(1, 11):
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(X_scaled[:, rfecv.support_])
+    sse.append(kmeans.inertia_)
+
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, 11), sse)
+plt.xlabel('Number of Clusters')
+plt.ylabel('SSE')
+plt.title('Elbow Method for Optimal Number of Clusters')
+plt.show()
+
+# Assuming you choose k=3 based on the elbow method
+k = 3
+kmeans = KMeans(n_clusters=k, random_state=42)
+clusters = kmeans.fit_predict(X_scaled[:, rfecv.support_])
+
+# Add the cluster labels to the dataframe
+df['Cluster'] = clusters
+
+# Visualize the clusters on the three most important features
+fig = plt.figure(figsize=(10, 6))
+ax = fig.add_subplot(111, projection='3d')
+scatter = ax.scatter(df[selected_features[0]], df[selected_features[1]], df[selected_features[2]], c=df['Cluster'], cmap='viridis')
+legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
+ax.add_artist(legend1)
+ax.set_xlabel(selected_features[0])
+ax.set_ylabel(selected_features[1])
+ax.set_zlabel(selected_features[2])
+plt.title('Clusters Visualization on Selected Features')
+plt.show()
+
