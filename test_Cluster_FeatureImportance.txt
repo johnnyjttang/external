@@ -369,3 +369,193 @@ reg_output = stargazer_dropcols(stargazer.render_latex(), keywords_to_drop)
 
 with open('output/ciq/RESTUD/reg_original.tex', 'w') as f:
     f.write(reg_output)
+
+##### Feature Selection
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.feature_selection import SequentialFeatureSelector, RFE
+from sklearn.metrics import mean_squared_error
+
+# Example data
+df = pd.DataFrame({
+    'Y': np.random.rand(100),
+    'X1': np.random.rand(100),
+    'X2': np.random.rand(100),
+    'X3': np.random.rand(100),
+    'X4': np.random.rand(100),
+    'X5': np.random.rand(100)
+})
+
+X = df.drop(columns=['Y'])
+y = df['Y']
+
+# Forward sequential feature selection
+model = LinearRegression()
+sfs_forward = SequentialFeatureSelector(model, n_features_to_select='auto', direction='forward', cv=5)
+sfs_forward.fit(X, y)
+selected_features_forward = X.columns[sfs_forward.get_support()]
+print("Forward Sequential Feature Selection Selected Features:", selected_features_forward)
+
+# Backward sequential feature selection
+sfs_backward = SequentialFeatureSelector(model, n_features_to_select='auto', direction='backward', cv=5)
+sfs_backward.fit(X, y)
+selected_features_backward = X.columns[sfs_backward.get_support()]
+print("Backward Sequential Feature Selection Selected Features:", selected_features_backward)
+
+# Recursive Feature Elimination
+rfe = RFE(model, n_features_to_select=3)  # Adjust n_features_to_select as needed
+rfe.fit(X, y)
+selected_features_rfe = X.columns[rfe.get_support()]
+print("Recursive Feature Elimination Selected Features:", selected_features_rfe)
+
+# Function definitions for step-wise selection
+import statsmodels.api as sm
+from itertools import combinations
+
+def forward_stepwise_selection(data, response):
+    initial_features = []
+    remaining_features = list(data.columns)
+    remaining_features.remove(response)
+    selected_features = initial_features[:]
+    best_mse = float('inf')
+    best_model = None
+
+    while remaining_features:
+        mse_with_candidates = []
+        for candidate in remaining_features:
+            model = sm.OLS(data[response], sm.add_constant(data[selected_features + [candidate]])).fit()
+            mse = mean_squared_error(data[response], model.predict(sm.add_constant(data[selected_features + [candidate]])))
+            mse_with_candidates.append((mse, candidate))
+
+        mse_with_candidates.sort()
+        best_new_mse, best_candidate = mse_with_candidates[0]
+
+        if best_new_mse < best_mse:
+            selected_features.append(best_candidate)
+            remaining_features.remove(best_candidate)
+            best_mse = best_new_mse
+            best_model = model
+        else:
+            break
+
+    return best_model, selected_features
+
+def backward_stepwise_selection(data, response):
+    selected_features = list(data.columns)
+    selected_features.remove(response)
+    best_mse = float('inf')
+    best_model = None
+
+    while selected_features:
+        mse_with_candidates = []
+        for candidate in selected_features:
+            remaining_features = list(selected_features)
+            remaining_features.remove(candidate)
+            model = sm.OLS(data[response], sm.add_constant(data[remaining_features])).fit()
+            mse = mean_squared_error(data[response], model.predict(sm.add_constant(data[remaining_features])))
+            mse_with_candidates.append((mse, candidate))
+
+        mse_with_candidates.sort()
+        best_new_mse, worst_candidate = mse_with_candidates[0]
+
+        if best_new_mse < best_mse:
+            selected_features.remove(worst_candidate)
+            best_mse = best_new_mse
+            best_model = model
+        else:
+            break
+
+    return best_model, selected_features
+
+def best_subset_selection(data, response):
+    X = data.drop(columns=[response])
+    y = data[response]
+    best_mse = float('inf')
+    best_model = None
+    best_features = None
+
+    for k in range(1, len(X.columns) + 1):
+        for combo in combinations(X.columns, k):
+            model = sm.OLS(y, sm.add_constant(data[list(combo)])).fit()
+            mse = mean_squared_error(y, model.predict(sm.add_constant(data[list(combo)])))
+            if mse < best_mse:
+                best_mse = mse
+                best_model = model
+                best_features = combo
+
+    return best_model, best_features
+
+# Forward step-wise selection
+model_forward, selected_features_forward = forward_stepwise_selection(df, 'Y')
+print("Forward Step-wise Selected Features:", selected_features_forward)
+print(model_forward.summary())
+
+# Backward step-wise selection
+model_backward, selected_features_backward = backward_stepwise_selection(df, 'Y')
+print("Backward Step-wise Selected Features:", selected_features_backward)
+print(model_backward.summary())
+
+# Best subset selection
+model_best_subset, selected_features_best_subset = best_subset_selection(df, 'Y')
+print("Best Subset Selected Features:", selected_features_best_subset)
+print(model_best_subset.summary())
+
+
+##### Feature Selection (forward using statsmodels and adj. R^2)
+import statsmodels.formula.api as smf
+
+
+def forward_selected(data, response):
+    """Linear model designed by forward selection.
+
+    Parameters:
+    -----------
+    data : pandas DataFrame with all possible predictors and response
+
+    response: string, name of response column in data
+
+    Returns:
+    --------
+    model: an "optimal" fitted statsmodels linear model
+           with an intercept
+           selected by forward selection
+           evaluated by adjusted R-squared
+    """
+    remaining = set(data.columns)
+    remaining.remove(response)
+    selected = []
+    current_score, best_new_score = 0.0, 0.0
+    while remaining and current_score == best_new_score:
+        scores_with_candidates = []
+        for candidate in remaining:
+            formula = "{} ~ {} + 1".format(response,
+                                           ' + '.join(selected + [candidate]))
+            score = smf.ols(formula, data).fit().rsquared_adj
+            scores_with_candidates.append((score, candidate))
+        scores_with_candidates.sort()
+        best_new_score, best_candidate = scores_with_candidates.pop()
+        if current_score < best_new_score:
+            remaining.remove(best_candidate)
+            selected.append(best_candidate)
+            current_score = best_new_score
+    formula = "{} ~ {} + 1".format(response,
+                                   ' + '.join(selected))
+    model = smf.ols(formula, data).fit()
+    return model
+
+import pandas as pd
+
+
+url = "http://data.princeton.edu/wws509/datasets/salary.dat"
+data = pd.read_csv(url, sep='\\s+')
+
+model = forward_selected(data, 'sl')
+
+print model.model.formula
+# sl ~ rk + yr + 1
+
+print model.rsquared_adj
+# 0.835190760538
+
+
