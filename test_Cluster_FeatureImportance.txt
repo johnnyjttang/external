@@ -154,3 +154,218 @@ ax.set_zlabel(selected_features[2])
 plt.title('Clusters Visualization on Selected Features')
 plt.show()
 
+##### Residualized Regression
+import pandas as pd
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+def run_regressions(data, Y, Xs, Zs):
+    # Step 1: Regression of Y on Zs and saving residuals as Y_tilde
+    formula_Y = f"{Y} ~ " + " + ".join(Zs)
+    model_Y = smf.ols(formula=formula_Y, data=data).fit()
+    data['Y_tilde'] = model_Y.resid
+
+    # Step 2: Regression of each X on Zs and saving residuals as Xi_tilde
+    for X in Xs:
+        formula_X = f"{X} ~ " + " + ".join(Zs)
+        model_X = smf.ols(formula=formula_X, data=data).fit()
+        data[f'{X}_tilde'] = model_X.resid
+
+    # Step 3: Regression of Y_tilde on all Xi_tilde's jointly
+    tilde_columns = [f"{X}_tilde" for X in Xs]
+    formula_tilde = "Y_tilde ~ " + " + ".join(tilde_columns)
+    model_tilde = smf.ols(formula=formula_tilde, data=data).fit()
+
+    return model_tilde
+
+# Example usage:
+# Assuming df is your dataframe with columns Y, X1, ..., Xp, Z1, ..., Zk
+# Y = 'Y'
+# Xs = ['X1', 'X2', 'Xp']
+# Zs = ['Z1', 'Z2', 'Zk']
+# model = run_regressions(df, Y, Xs, Zs)
+# print(model.summary())
+
+
+import pandas as pd
+import statsmodels.api as sm
+
+# Assuming you have a DataFrame called 'data' with columns Y, X1,...,Xp, Z1,...,Zk
+
+# Step 1: Run regression of Y on Zs and save residuals as Y_tilde column
+Zs = ['Z1', 'Z2', ..., 'Zk']
+Xs = ['X1', 'X2', ..., 'Xp']
+
+# Step 1: Run regression of Y on Zs and save residuals as Y_tilde column
+def run_regression_y_on_zs(data, zs):
+    X = data[zs]
+    X = sm.add_constant(X)  # Adding a constant term to the model
+    model = sm.OLS(data['Y'], X)
+    results = model.fit()
+    data['Y_tilde'] = results.resid
+    return data
+
+data = run_regression_y_on_zs(data, Zs)
+
+# Step 2: Run regression of each X in Xs on Zs and save each residual as Xi_tilde column
+def run_regression_x_on_zs(data, xs, zs):
+    for x in xs:
+        X = data[[x] + zs]
+        X = sm.add_constant(X)  # Adding a constant term to the model
+        model = sm.OLS(X[x], X.drop(columns=[x]))
+        results = model.fit()
+        data[x + '_tilde'] = results.resid
+    return data
+
+data = run_regression_x_on_zs(data, Xs, Zs)
+
+# Step 3: Run regression of Y_tilde on all Xi_tilde's jointly
+def run_regression_y_tilde_on_x_tildes(data, xs):
+    X = data[[x + '_tilde' for x in xs]]
+    X = sm.add_constant(X)  # Adding a constant term to the model
+    model = sm.OLS(data['Y_tilde'], X)
+    results = model.fit()
+    print(results.summary())
+
+run_regression_y_tilde_on_x_tildes(data, Xs)
+
+##### Drop Variables from statsmodels
+import pandas as pd
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+def omit_coefficients_from_summary(model, omit_vars):
+    summary = model.summary2().tables[1]
+    for var in omit_vars:
+        if var in summary.index:
+            summary = summary.drop(index=var)
+    return summary
+
+# Example usage:
+# Assuming df is your dataframe with columns Y, X1, ..., Xp, Z1, ..., Zk
+# Y = 'Y'
+# Xs = ['X1', 'X2', 'Xp']
+# Zs = ['Z1', 'Z2', 'Zk']
+
+# Create a formula and fit the model
+formula = f"{Y} ~ " + " + ".join(Xs + Zs)
+model = smf.ols(formula=formula, data=df).fit()
+
+# Variables to omit from the summary
+omit_vars = ['Z1', 'Z2']
+
+# Get the modified summary
+modified_summary = omit_coefficients_from_summary(model, omit_vars)
+print(modified_summary)
+
+import statsmodels.api as sm
+
+# Assuming you have already run a linear regression and stored the results in the variable 'results'
+
+# List of variable names you want to drop from the summary
+variables_to_drop = ['var1', 'var2', ...]
+
+# Dropping the variables from the results object
+results_dropped = results.drop(variables_to_drop, axis=0)
+
+# Printing the summary of the modified results
+print(results_dropped.summary())
+
+##### My Setup
+#### Load Packages
+import os
+import numpy as np
+import pandas as pd
+import math
+import statistics
+import time
+import re
+
+import sklearn
+import scipy.stats
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso
+from sklearn.linear_model import ElasticNet
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.decomposition import PCA
+
+from sklearn.preprocessing import scale
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import cross_val_score
+
+from statsmodels.api import OLS
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+from linearmodels import PanelOLS
+
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+from binsreg import binsreg
+
+# DateTme
+from datetime import timedelta
+from datetime import time
+
+# Large Datasets
+import dask.dataframe as dd
+
+# Set Random Seed
+import random
+random.seed(1)
+
+# Regression Output
+from stargazer.stargazer import Stargazer
+def stargazer_dropcols(latex_code, keywords_to_drop):
+    lines = latex_code.split('\n')
+    new_lines = []
+    for line in lines:
+        if not any(keyword in line for keyword in keywords_to_drop):
+            new_lines.append(line)
+    return '\n'.join(new_lines)
+
+# Display All Outputs
+from IPython.core.interactiveshell import InteractiveShell
+InteractiveShell.ast_node_interactivity = "all"
+pd.options.display.max_rows = 4000
+
+# Plot Settings
+plt.rcParams.update({'font.size': 24})
+
+
+##### Regression Outputs
+#reghdfe day`numdays'ret_cum_0 day0ret_this day0ret_abtailinv_this, nocons absorb(event) cluster(permno_id)
+reg_original = smf.ols('day90ret_cum_0 ~ day0ret + day0ret_abtailinv_this', data=df_sample).fit(cov_type='cluster', cov_kwds={'groups': np.array(df_sample[['permno', 'date_actual']])})
+reg_original.summary()
+
+#df_sample.describe()
+
+### Output to LaTeX
+# Regression Results
+stargazer = Stargazer([reg_original])
+stargazer.covariate_order(['day0ret','day0ret_abtailinv_this'])
+stargazer.rename_covariates({'day0ret':'Announcement-Day Return',
+                             'day0ret_abtailinv_this':'Announcement-Day Return x Extremeness'})
+stargazer.add_line("Specification",['Original'])
+
+# XXX Replace Return with "Announcement-Day Return"
+# XXX Replace Extremeness with "Extremeness"
+
+keywords_to_drop = ['C(date',
+                    'R^2','Residual Std. Error','F Statistic',
+                    'Note:',
+                    'begin{table}','end{table}',
+                    'Dependent variable']
+
+reg_output = stargazer_dropcols(stargazer.render_latex(), keywords_to_drop)
+
+with open('output/ciq/RESTUD/reg_original.tex', 'w') as f:
+    f.write(reg_output)
