@@ -1,0 +1,37 @@
+// JupyterLab -> Settings -> Settings Editor -> JSON Settings Editor -> Copy below into user commands and save
+{
+"shortcuts": [
+        {
+            "command": "kernelmenu:restart-and-clear",
+  "keys": [
+    "9",
+    "9"
+  ],
+  "selector": ".jp-Notebook:focus"
+        },
+    {
+     "command": "notebook:run-all-cells",
+  "keys": [
+    "8",
+    "8"
+  ],
+  "selector": ".jp-Notebook:focus"
+    },
+    {
+     "command": "notebook:run-all-cells-above",
+  "keys": [
+    "1",
+    "1"
+  ],
+  "selector": ".jp-Notebook:focus"
+    },
+    {
+     "command": "notebook:run-all-cells-below",
+  "keys": [
+    "2",
+    "2"
+  ],
+  "selector": ".jp-Notebook:focus"
+    },
+    ]
+}
